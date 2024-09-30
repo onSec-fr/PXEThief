@@ -177,7 +177,7 @@ def find_pxe_server():
         packet = ans
 
         # Pull out DHCP offer from received answer packet
-        dhcp_options = packet[1][DHCP].options
+        dhcp_options = packet[0][DHCP].options
         
         tftp_server = next((opt[1] for opt in dhcp_options if isinstance(opt, tuple) and opt[0] == "tftp_server_name"),None)
         if tftp_server:
