@@ -495,19 +495,30 @@ def dowload_and_decrypt_policies_using_certificate(guid,cert_bytes):
 
     data = CCMClientID.encode("utf-16-le") + b'\x00\x00'
     #CCMClientIDSignature = generateSignedData(data,cryptoProv)
-    CCMClientIDSignature = str(generateClientTokenSignature(data,cryptoProv))
+    try:
+        CCMClientIDSignature = str(generateClientTokenSignature(data,cryptoProv))
+    except:
+        print("[+] Error generating SHA256 CCMClientIDSignature - Trying SHA1...")
+        CCMClientIDSignature = generateSignedData(data,cryptoProv)
     print("[+] CCMClientID Signature Generated")
 
     CCMClientTimestamp = datetime.datetime.utcnow().replace(microsecond=0).isoformat()+'Z'
     data = CCMClientTimestamp.encode("utf-16-le") + b'\x00\x00'
     #CCMClientTimestampSignature = generateSignedData(data,cryptoProv)
-    CCMClientTimestampSignature = str(generateClientTokenSignature(data,cryptoProv))
+    try:
+        CCMClientTimestampSignature = str(generateClientTokenSignature(data,cryptoProv))
+    except:
+        print("[+] Error generating SHA256 CCMClientTimestampSignature - Trying SHA1...")
+        CCMClientTimestampSignature = generateSignedData(data,cryptoProv)
     print("[+] CCMClientTimestamp Signature Generated")
 
     data = (CCMClientID + ';' + CCMClientTimestamp + "\0").encode("utf-16-le")
     #clientTokenSignature = str(generateSignedData(data,cryptoProv))
-    clientTokenSignature = str(generateClientTokenSignature(data,cryptoProv))
-    
+    try:
+        clientTokenSignature = str(generateClientTokenSignature(data,cryptoProv))
+    except:
+        print("[+] Error generating SHA256 clientTokenSignature - Trying SHA1...")
+        clientTokenSignature = str(generateSignedData(data,cryptoProv))
     print("[+] ClientToken Signature Generated")
     
     try:
