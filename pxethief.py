@@ -220,10 +220,13 @@ def get_variable_file_path(tftp_server):
     encrypted_key = None
     if ans:
         packet = ans
-        dhcp_options = packet[1][DHCP].options
+        dhcp_options = packet[0][DHCP].options
     
         #Does the received packet contain DHCP Option 243? DHCP option 243 is used by SCCM to send the variable file location
-        option_number, variables_file = next(opt for opt in dhcp_options if isinstance(opt, tuple) and opt[0] == 243) 
+        try:
+            option_number, variables_file = next(opt for opt in dhcp_options if isinstance(opt, tuple) and opt[0] == 243) 
+        except:
+            variables_file = None
         if variables_file:
             packet_type = variables_file[0] #First byte of the option data determines the type of data that follows
             data_length = variables_file[1] #Second byte of the option data is the length of data that follows
